@@ -1,10 +1,12 @@
+from typing import TYPE_CHECKING, Callable, Self, List
+
 import peewee
 
 from .result_wrappers import AsyncQueryWrapper
 from .utils import CursorProtocol
 
 
-async def aio_prefetch(sq, *subqueries, prefetch_type):
+async def aio_prefetch(sq: peewee.Query, *subqueries: peewee.ModelSelect, prefetch_type: peewee.PREFETCH_TYPE):
     """Asynchronous version of `prefetch()`.
 
     See also:
@@ -13,7 +15,7 @@ async def aio_prefetch(sq, *subqueries, prefetch_type):
     if not subqueries:
         return sq
 
-    fixed_queries = peewee.prefetch_add_subquery(sq, subqueries, prefetch_type)
+    fixed_queries: List[peewee.PrefetchQuery] = peewee.prefetch_add_subquery(sq, subqueries, prefetch_type)
     deps = {}
     rel_map = {}
 
@@ -96,6 +98,7 @@ class AioSelectMixin(AioQueryMixin):
         See also:
         http://docs.peewee-orm.com/en/3.15.3/peewee/api.html#SelectBase.scalar
         """
+
         async def fetch_results(cursor):
             return await cursor.fetchone()
 
@@ -115,9 +118,11 @@ class AioSelectMixin(AioQueryMixin):
             return (await clone.aio_execute(database))[0]
         except IndexError:
             sql, params = clone.sql()
-            raise self.model.DoesNotExist('%s instance matching query does '
-                                          'not exist:\nSQL: %s\nParams: %s' %
-                                          (clone.model, sql, params))
+            raise self.model.DoesNotExist(
+                '%s instance matching query does '
+                'not exist:\nSQL: %s\nParams: %s' %
+                (clone.model, sql, params)
+            )
 
     @peewee.database_required
     async def aio_count(self, database, clear_limit=False):
@@ -132,8 +137,8 @@ class AioSelectMixin(AioQueryMixin):
             clone._limit = clone._offset = None
         try:
             if clone._having is None and clone._group_by is None and \
-               clone._windows is None and clone._distinct is None and \
-               clone._simple_distinct is not True:
+                    clone._windows is None and clone._distinct is None and \
+                    clone._simple_distinct is not True:
                 clone = clone.select(peewee.SQL('1'))
         except AttributeError:
             pass
@@ -154,18 +159,22 @@ class AioSelectMixin(AioQueryMixin):
 
     def union_all(self, rhs):
         return AioModelCompoundSelectQuery(self.model, self, 'UNION ALL', rhs)
+
     __add__ = union_all
 
     def union(self, rhs):
         return AioModelCompoundSelectQuery(self.model, self, 'UNION', rhs)
+
     __or__ = union
 
     def intersect(self, rhs):
         return AioModelCompoundSelectQuery(self.model, self, 'INTERSECT', rhs)
+
     __and__ = intersect
 
     def except_(self, rhs):
         return AioModelCompoundSelectQuery(self.model, self, 'EXCEPT', rhs)
+
     __sub__ = except_
 
     def aio_prefetch(self, *subqueries, **kwargs):
@@ -179,13 +188,16 @@ class AioSelectMixin(AioQueryMixin):
 
 
 class AioSelect(AioSelectMixin, peewee.Select):
-    pass
+    # не уверен, что правильно
+    if TYPE_CHECKING:
+        order_by: Callable[..., Self]
 
 
 class AioModelSelect(AioSelectMixin, peewee.ModelSelect):
     """Async version of **peewee.ModelSelect** that provides async versions of ModelSelect methods
     """
-    pass
+    if TYPE_CHECKING:
+        order_by: Callable[..., Self]
 
 
 class AioModelCompoundSelectQuery(AioSelectMixin, peewee.ModelCompoundSelectQuery):

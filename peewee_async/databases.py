@@ -1,6 +1,6 @@
 import contextlib
 import logging
-from typing import Type, Optional, Any, AsyncIterator, Iterator, Dict
+from typing import Type, Optional, Any, AsyncIterator, Iterator, Dict, Union
 
 import peewee
 from playhouse import postgres_ext as ext
@@ -8,7 +8,7 @@ from playhouse import postgres_ext as ext
 from .connection import connection_context, ConnectionContextManager
 from .pool import PoolBackend, PostgresqlPoolBackend, MysqlPoolBackend
 from .transactions import Transaction
-from .utils import psycopg2, aiopg, pymysql, aiomysql, __log__
+from .utils import psycopg2, aiopg, pymysql, aiomysql, __log__, ResultFetcherProtocol, T_result_data
 
 
 class AioDatabase(peewee.Database):
@@ -112,7 +112,13 @@ class AioDatabase(peewee.Database):
 
         return ConnectionContextManager(self.pool_backend)
 
-    async def aio_execute_sql(self, sql: str, params=None, fetch_results=None):
+    async def aio_execute_sql(
+            self,
+            sql: str,
+            params=None,
+            fetch_results: ResultFetcherProtocol = None
+    ) -> Union[None, T_result_data]:
+
         __log__.debug(sql, params)
         with peewee.__exception_wrapper__:
             async with self.aio_connection() as connection:
@@ -121,7 +127,11 @@ class AioDatabase(peewee.Database):
                     if fetch_results is not None:
                         return await fetch_results(cursor)
 
-    async def aio_execute(self, query, fetch_results=None):
+    async def aio_execute(
+            self,
+            query: peewee.Query,
+            fetch_results: ResultFetcherProtocol = None
+    ) -> Union[None, T_result_data]:
         """Execute *SELECT*, *INSERT*, *UPDATE* or *DELETE* query asyncronously.
 
         :param query: peewee query instance created with ``Model.select()``,
@@ -183,7 +193,7 @@ class PooledPostgresqlDatabase(AioPostgresqlMixin, peewee.PostgresqlDatabase):
         super().init(database, **kwargs)
 
     @property
-    def connect_params_async(self):
+    def connect_params_async(self) -> Dict[str, Any]:
         """Connection parameters for `aiopg.Connection`
         """
         kwargs = self.connect_params.copy()

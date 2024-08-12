@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Protocol, Optional, Sequence, Set, AsyncContextManager
+from typing import Any, Protocol, Optional, Sequence, Set, AsyncContextManager, TypeVar
 
 try:
     import aiopg
@@ -20,7 +20,7 @@ __log__.addHandler(logging.NullHandler())
 
 
 class CursorProtocol(Protocol):
-    async def fetchone(self) -> Any:
+    async def fetchone(self) -> tuple:
         ...
 
     @property
@@ -41,14 +41,13 @@ class CursorProtocol(Protocol):
 
 class ConnectionProtocol(Protocol):
     def cursor(
-        self,
-        **kwargs: Any
+            self,
+            **kwargs: Any
     ) -> AsyncContextManager[CursorProtocol]:
         ...
 
 
 class PoolProtocol(Protocol):
-
     _used: Set[ConnectionProtocol]
 
     @property
@@ -67,3 +66,10 @@ class PoolProtocol(Protocol):
     async def wait_closed(self) -> None:
         ...
 
+
+T_result_data = TypeVar('T_result_data')
+
+
+class ResultFetcherProtocol(Protocol[T_result_data]):
+    def __call__(self, cursor) -> T_result_data:
+        ...

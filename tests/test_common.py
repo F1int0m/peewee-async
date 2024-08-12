@@ -89,3 +89,4 @@ async def test_allow_sync_is_reverted_for_exc(db):
     except peewee.IntegrityError:
         pass
     assert db._allow_sync is False
+
